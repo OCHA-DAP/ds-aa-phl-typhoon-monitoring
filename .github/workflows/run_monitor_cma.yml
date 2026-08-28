@@ -96,12 +96,9 @@ jobs:
           ARGS=()
           if [ -n "$INPUT_BLOB" ]; then ARGS+=(--blob "$INPUT_BLOB"); fi
           if [ -n "$INPUT_SINCE" ]; then ARGS+=(--since "$INPUT_SINCE"); fi
-          # Unattended runs go to the test list until the monitoring has
-          # been watched through a real storm. Remove the EVENT_NAME clause
-          # to send scheduled runs to the live list.
-          case "$EVENT_NAME" in
-            schedule|repository_dispatch) ARGS+=(--test) ;;
-            *) if [ "$INPUT_TEST" = "true" ]; then ARGS+=(--test); fi ;;
-          esac
+          # Scheduled runs send to the live distribution list. To put
+          # unattended runs back on the test list, add:
+          #   if [ "$EVENT_NAME" = "schedule" ]; then ARGS+=(--test); fi
+          if [ "$INPUT_TEST" = "true" ]; then ARGS+=(--test); fi
           if [ "$INPUT_DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
           python pipelines/monitor_cma.py "${ARGS[@]}"

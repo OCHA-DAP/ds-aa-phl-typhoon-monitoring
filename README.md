@@ -229,12 +229,11 @@ python pipelines/monitor_cma.py --test
 | `--max-bulletins` | Cap bulletins processed in one run (default 20) |
 | `--test` | Send to the test list (103) instead of the live list (121) |
 
-Scheduled and `repository_dispatch` runs currently force `--test`, so
-unattended monitoring goes to the test list until it has been watched through
-a real storm. A manual `workflow_dispatch` still honours its own `test`
-input, so the live list can be exercised deliberately. To go live, drop the
-`schedule|repository_dispatch` case from the run step in
-`.github/workflows/run_monitor_cma.yml`.
+Scheduled runs send to the **live list (121)**. A manual `workflow_dispatch`
+honours its own `test` input, so the test list can still be used deliberately.
+To put unattended runs back on the test list, add
+`schedule|repository_dispatch) ARGS+=(--test) ;;` to the case in the run step
+of `.github/workflows/run_monitor_cma.yml`.
 | `--force-email` | Skip the relevance and cooldown checks |
 | `--dry-run` | Write nothing to blob, send no email |
 
