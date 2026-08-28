@@ -62,11 +62,15 @@ READINESS_THRESHOLD_KPH_2MIN = (
 )  # 164.6 kph
 READINESS_THRESHOLD_KT = READINESS_THRESHOLD_KPH_2MIN / KNOTS_TO_KMH  # 88.9 kt
 
-# Lead-time window on the forecast landfall, in hours. The historical analysis
-# used a 4-7 day window on bulletin issue time; the live CMA bulletin only
-# forecasts out to 120 h, so 4-5 days is the operationally reachable part of
-# that window. See README for the consequences.
-READINESS_MIN_LEAD_H = 96
+# Lead-time window on the forecast landfall, in hours. Readiness is monitored
+# from the moment CMA releases a forecast showing a qualifying landfall right
+# up to landfall itself, so there is no minimum lead. The maximum simply
+# bounds the window; CMA forecasts only reach 120 h in any case.
+#
+# Note this is wider than the 4-7 day window used for the return periods in
+# pa-aa-phl-storms notebook 11.1, so activations will be more frequent than
+# the 3.1 year return period computed there.
+READINESS_MIN_LEAD_H = 0
 READINESS_MAX_LEAD_H = 168
 
 # Forecast track is treated as making landfall if it crosses the region

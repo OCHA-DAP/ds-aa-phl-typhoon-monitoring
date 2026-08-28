@@ -15,9 +15,10 @@ notebooks `11.1` (CMA readiness trigger) and `14` (trigger summary).
 
 ### Readiness trigger
 
-> Readiness activates when a CMA forecast of at least **177 kph (1-minute
-> sustained)** is issued **4-7 days** before a qualifying landfall in a target
-> region. Activation is counted once per season.
+> Readiness activates when a CMA forecast shows a qualifying landfall in a
+> target region at or above **177 kph (1-minute sustained)**. It is monitored
+> from the release of that forecast **until landfall**, with no minimum lead
+> time.
 
 CMA reports 2-minute sustained winds, so the threshold is converted before
 comparison: 177 kph (1-min) x 0.93 = 164.6 kph (2-min) = **88.9 kt**.
@@ -33,19 +34,22 @@ forwards: a bulletin reaches the trigger when its own forecast track crosses a
 target region at or above threshold intensity, at a lead time inside the
 window.
 
-**Readiness is monitored all the way to landfall**, not only while the window
-is open. Each bulletin reports a phase alongside the trigger decision, so a
-storm is never dropped from reporting just because the window has closed:
+**Readiness runs from forecast release to landfall.** There is no minimum
+lead time: a storm that only reaches threshold two days out still activates
+readiness. Each bulletin reports a phase alongside the trigger decision:
 
 | Phase | Status | Meaning |
 |---|---|---|
-| `before_window` | `awaiting_window` | Qualifying landfall forecast, further out than the window |
-| `in_window` | `triggered` | Lead time inside the window: the trigger is reached |
-| `after_window` | `monitoring_to_landfall` | Window closed, storm still inbound and reported every bulletin |
+| `in_window` | `triggered` | Qualifying landfall forecast, at any lead up to landfall |
+| `before_window` | `awaiting_window` | Qualifying landfall beyond the outer bound (168 h) |
 | `no_landfall_forecast` | `no_landfall` / `below_threshold` / `no_forecast` | No qualifying landfall on this forecast |
 
 Once readiness has been reached for a storm, later bulletins keep saying so.
 Every alert also states the hours remaining to forecast landfall.
+
+This window is wider than the 4-7 day one used for the return periods in
+`pa-aa-phl-storms` notebook 11.1, so activation will be more frequent than
+the 3.1 year return period computed there.
 
 **Exposure is computed throughout**, on every bulletin for a storm in play,
 independently of the readiness phase.

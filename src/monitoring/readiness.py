@@ -1,21 +1,14 @@
 """Readiness trigger check against a live CMA forecast bulletin.
 
-Framework statement (``pa-aa-phl-storms`` notebooks 11.1 and 14):
+Readiness activates when a CMA forecast shows a qualifying landfall in a
+target region at or above 177 kph (1-minute sustained). It is monitored from
+the moment that forecast is released right up to landfall, so there is no
+minimum lead time: a storm that only reaches threshold two days out still
+activates readiness.
 
-    Readiness activates when a CMA forecast of at least 177 kph (1-minute
-    sustained) is issued 4-7 days before a qualifying landfall in a target
-    region. Activation is counted once per season.
-
-The historical analysis could look backwards from an observed landfall. In
-monitoring there is no observed landfall yet, so the same statement is applied
-forwards: a bulletin activates readiness when its own forecast track makes
-landfall in a target region at a lead time inside the window, and the storm is
-forecast to be at or above threshold intensity.
-
-One consequence is worth stating plainly. The live CMA bulletin forecasts only
-to 120 h, so the reachable part of the 4-7 day window is 4-5 days. Bulletins
-can never show a 6-7 day lead, which matches the historical finding that only
-one season in 2004-2025 had a qualifying signal at 7+ days.
+This is wider than the 4-7 day window used for the return periods in
+``pa-aa-phl-storms`` notebooks 11.1 and 14. Activation here will therefore be
+more frequent than the 3.1 year return period computed on that window.
 """
 
 import geopandas as gpd
@@ -180,21 +173,16 @@ def check_readiness(
             Forecast at or above threshold, but the track does not cross a
             target region.
         ``awaiting_window``
-            Qualifying landfall forecast, but still further out than the
-            window. Keep watching, the window has not opened yet.
-        ``monitoring_to_landfall``
-            Qualifying landfall forecast inside the window, so the readiness
-            window has closed for this storm. Monitoring continues every
-            bulletin until landfall, since the intensity and the regions in
-            the path keep moving.
+            Qualifying landfall forecast, but beyond the outer bound of the
+            window. Keep watching.
         ``triggered``
-            Qualifying landfall at a lead time inside the window.
+            Qualifying landfall forecast, at any lead time from release up
+            to landfall.
 
     ``phase`` places the storm on the timeline independently of the trigger
-    decision: ``before_window``, ``in_window``, ``after_window`` or
-    ``no_landfall_forecast``. ``monitoring_active`` is True while a
-    qualifying landfall is still ahead, which is the signal to keep
-    reporting on this storm.
+    decision: ``before_window``, ``in_window`` or ``no_landfall_forecast``.
+    ``monitoring_active`` is True while a qualifying landfall is still
+    ahead, which is the signal to keep reporting on this storm.
     """
     result = {
         "storm_name": bulletin["storm_name"],

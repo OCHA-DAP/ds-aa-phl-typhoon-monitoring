@@ -22,8 +22,6 @@ from src.constants import (
     EXPOSURE_TRIGGER_SPEED_KT,
     LISTMONK_LIST_ID,
     LISTMONK_LIST_ID_TEST,
-    READINESS_MAX_LEAD_H,
-    READINESS_MIN_LEAD_H,
     READINESS_THRESHOLD_KPH_1MIN,
 )
 from src.utils.categories import expand_category
@@ -260,13 +258,14 @@ def _build_body(
                              fig_region_share)}
 
           <h2>Further details</h2>
-          <p>Readiness requires a CMA forecast of at least
-          {READINESS_THRESHOLD_KPH_1MIN} kph (1-minute sustained)
-          {READINESS_MIN_LEAD_H // 24}-{READINESS_MAX_LEAD_H // 24} days
-          before a qualifying landfall. Exposure requires landfall as a Super
-          Typhoon and at least {EXPOSURE_SHARE_THRESHOLD:.0%} of a target
-          region inside the {EXPOSURE_TRIGGER_SPEED_KT} kt wind field.
-          Per-province figures are saved to blob storage.</p>
+          <p>Readiness requires a CMA forecast showing a qualifying landfall
+          in a target region at or above
+          {READINESS_THRESHOLD_KPH_1MIN} kph (1-minute sustained), and is
+          monitored from the release of that forecast until landfall.
+          Exposure requires landfall as a Super Typhoon and at least
+          {EXPOSURE_SHARE_THRESHOLD:.0%} of a target region inside the
+          {EXPOSURE_TRIGGER_SPEED_KT} kt wind field. Per-province figures are
+          saved to blob storage.</p>
           <p>For more details on the Anticipatory Action framework for
           typhoons in the Philippines, please refer to the
           <a href="{FRAMEWORK_URL}" target="_blank"
