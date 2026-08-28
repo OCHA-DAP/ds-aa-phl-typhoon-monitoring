@@ -84,6 +84,7 @@ jobs:
           INPUT_BLOB: ${{ github.event.inputs.blob }}
           INPUT_SINCE: ${{ github.event.inputs.since }}
           INPUT_TEST: ${{ github.event.inputs.test }}
+          EVENT_NAME: ${{ github.event_name }}
           INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
           DSCI_AZ_BLOB_DEV_SAS_WRITE: ${{ secrets.DSCI_AZ_BLOB_DEV_SAS_WRITE }}
           DSCI_AZ_BLOB_DEV_SAS: ${{ secrets.DSCI_AZ_BLOB_DEV_SAS }}
@@ -95,6 +96,12 @@ jobs:
           ARGS=()
           if [ -n "$INPUT_BLOB" ]; then ARGS+=(--blob "$INPUT_BLOB"); fi
           if [ -n "$INPUT_SINCE" ]; then ARGS+=(--since "$INPUT_SINCE"); fi
-          if [ "$INPUT_TEST" = "true" ]; then ARGS+=(--test); fi
+          # Unattended runs go to the test list until the monitoring has
+          # been watched through a real storm. Remove the EVENT_NAME clause
+          # to send scheduled runs to the live list.
+          case "$EVENT_NAME" in
+            schedule|repository_dispatch) ARGS+=(--test) ;;
+            *) if [ "$INPUT_TEST" = "true" ]; then ARGS+=(--test); fi ;;
+          esac
           if [ "$INPUT_DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
           python pipelines/monitor_cma.py "${ARGS[@]}"
