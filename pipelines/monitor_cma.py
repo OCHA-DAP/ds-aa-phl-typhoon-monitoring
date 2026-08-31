@@ -391,15 +391,40 @@ def main():
         print("No new CMA bulletins to process.")
         return 0
 
-    bulletins = []
+    bulletins, skipped = [], []
     for blob_name in blobs:
         bulletin = cma.load_bulletin(blob_name)
         if bulletin is None:
+            # TCPQ tabular products and WSCI advisories carry no forecast
+            # track. They are still logged, so the high-water mark advances
+            # past them: without this the same files are re-listed on every
+            # run for ever and the log never moves.
+            skipped.append(blob_name)
             continue
         bulletins.append(bulletin)
-    print(f"{len(bulletins)} subjective-forecast bulletins to assess")
+    print(
+        f"{len(bulletins)} subjective-forecast bulletins to assess, "
+        f"{len(skipped)} non-forecast products skipped"
+    )
+
+    skipped_rows = [
+        {
+            "issue_time": cma._blob_timestamp(blob_name),
+            "blob_name": blob_name,
+            "status": "not_a_forecast",
+            "triggered": False,
+            "monitoring_active": False,
+        }
+        for blob_name in skipped
+    ]
 
     if not bulletins:
+        if skipped_rows and not args.dry_run:
+            append_monitoring_log(skipped_rows)
+            print(
+                f"Logged {len(skipped_rows)} non-forecast products, "
+                "nothing to assess."
+            )
         return 0
 
     # The raster is only loaded if a storm actually approaches, so polls
