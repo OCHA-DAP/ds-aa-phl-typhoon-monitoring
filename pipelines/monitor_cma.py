@@ -138,6 +138,12 @@ def should_email(
     There is no cooldown: the monitoring log deduplicates on bulletin blob
     name, so a bulletin is processed once and produces at most one email.
     """
+    # Invariant: an email is sent only because a CMA bulletin identified a
+    # storm in play. `relevant` is built from the CMA forecast track alone
+    # (PAR, distance to target regions, or a CMA-forecast landfall), and the
+    # trigger states shown in the email come from the CMA radii footprint.
+    # CLIMADA is comparison-only: it is never an input here and must not
+    # become one.
     if force:
         return True
     return bool(relevant)

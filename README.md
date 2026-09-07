@@ -294,6 +294,11 @@ time remaining to CMA's forecast landfall.
 email, whether or not a trigger is reached.** The trigger state is reported
 in the email, it does not gate it.
 
+**Only CMA can cause an email.** Whether a storm is in play, whether it makes
+landfall, and both trigger states are all derived from the CMA bulletin. The
+CLIMADA source is comparison-only: it appears in the email and the log but is
+never an input to the decision to send.
+
 Close means the forecast track enters the **Philippine Area of
 Responsibility** (PAGASA's box, 5-25N and 115-135E) or comes within 500 km of
 a target region. Storms elsewhere in the Western North Pacific are still
