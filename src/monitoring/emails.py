@@ -216,12 +216,39 @@ def _exposure_section(
           {chart}"""
 
 
+def _comparison_section(comparison) -> str:
+    """Both exposure sources side by side, so they can be judged on live storms."""
+    if not comparison:
+        return ""
+    rows = ""
+    for label, figures in comparison:
+        if figures is None:
+            rows += (
+                f"<li><strong>{label}:</strong> not available for this "
+                "bulletin</li>"
+            )
+            continue
+        rows += (
+            f"<li><strong>{label}:</strong> {figures['people']} people "
+            f"({figures['national_share']} of The Philippines), most exposed "
+            f"region {figures['region_share']}, trigger "
+            f"{figures['trigger']}</li>"
+        )
+    return f"""
+          <h2>Exposure by source</h2>
+          <p>The same storm measured two ways, while both are being
+          compared. The trigger decision follows the CMA radii, which is the
+          footprint the 50% threshold was calibrated on.</p>
+          <ul>{rows}</ul>"""
+
+
 def _build_body(
     readiness_result: dict,
     fig_map,
     fig_region_share=None,
     exposure_trigger: dict = None,
     df_national=None,
+    comparison=None,
 ) -> str:
     """Compose the alert HTML in the IBF typhoon pipeline format."""
     storm = readiness_result["storm_name"]
@@ -256,6 +283,8 @@ def _build_body(
 
           {_exposure_section(exposure_trigger, df_national,
                              fig_region_share)}
+
+          {_comparison_section(comparison)}
 
           <h2>Further details</h2>
           <p>Readiness requires a CMA forecast showing a qualifying landfall
@@ -311,6 +340,7 @@ def send_monitoring_email(
     fig_region_share=None,
     exposure_trigger: dict = None,
     df_national=None,
+    comparison=None,
     test: bool = False,
 ) -> int:
     """Send the monitoring email. Returns the Listmonk campaign ID.
@@ -326,6 +356,7 @@ def send_monitoring_email(
         fig_region_share=fig_region_share,
         exposure_trigger=exposure_trigger,
         df_national=df_national,
+        comparison=comparison,
     )
 
     prefix = "[TEST] " if test else ""

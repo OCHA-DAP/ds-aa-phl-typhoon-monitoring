@@ -9,6 +9,10 @@ from src.constants import CHD_BLUE, CHD_GREEN, CHD_RED
 from src.datasources.cma import bulletin_to_frame
 from src.utils.categories import expand_category
 
+# Target regions are teal so they read as a separate layer from the orange
+# wind swath, rather than competing with it where the two overlap.
+REGION_COLOUR = "#2a9d8f"
+
 # Wind swath shading, weakest to strongest
 _SPEED_COLOURS = {
     30: "#fee6ce",
@@ -34,7 +38,8 @@ def plot_forecast_map(
     if adm1 is not None:
         adm1.plot(ax=ax, color="#f0ece3", edgecolor="#aaa", linewidth=0.4)
     regions.plot(
-        ax=ax, color="#f4a261", edgecolor="#333", linewidth=0.8, alpha=0.9
+        ax=ax, color=REGION_COLOUR, edgecolor="#1d6f66", linewidth=0.8,
+        alpha=0.45,
     )
 
     if buffers is not None and not buffers.empty:
@@ -75,7 +80,10 @@ def plot_forecast_map(
     handles = [
         Line2D([], [], color=CHD_RED, marker="o", markersize=4,
                label="CMA forecast track"),
-        mpatches.Patch(color="#f4a261", label="Framework target regions"),
+        mpatches.Patch(
+            color=REGION_COLOUR, alpha=0.45,
+            label="Framework target regions",
+        ),
     ]
     if buffers is not None and not buffers.empty:
         for speed in sorted(buffers["speed_kt"]):
@@ -258,6 +266,168 @@ def plot_region_share(
         "Population exposed by target region, CMA forecast",
         fontweight="bold",
         fontsize=10,
+    )
+    ax.legend(fontsize=8, loc="lower right")
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.grid(axis="x", linestyle=":", alpha=0.5)
+    fig.tight_layout()
+    return fig
+
+
+# Distinct hue per exposure source, used consistently across both figures.
+SOURCE_COLOURS = {
+    "CMA radii": "#e6550d",
+    "CLIMADA": "#7b3294",
+}
+
+
+def plot_forecast_map_comparison(
+    bulletin: dict,
+    regions,
+    buffers_by_source: dict,
+    adm1=None,
+    readiness_result: dict = None,
+    figsize=(13, 7.5),
+):
+    """The same CMA forecast under each wind footprint, side by side."""
+    track = bulletin_to_frame(bulletin).sort_values("fh")
+    sources = list(buffers_by_source.items())
+
+    fig, axes = plt.subplots(
+        1, len(sources), figsize=figsize, sharex=True, sharey=True
+    )
+    if len(sources) == 1:
+        axes = [axes]
+
+    for ax, (label, buffers) in zip(axes, sources):
+        colour = SOURCE_COLOURS.get(label, CHD_BLUE)
+        ax.set_facecolor("#cde0f0")
+        if adm1 is not None:
+            adm1.plot(ax=ax, color="#f0ece3", edgecolor="#aaa", linewidth=0.4)
+        regions.plot(
+            ax=ax, color=REGION_COLOUR, edgecolor="#1d6f66",
+            linewidth=0.8, alpha=0.45,
+        )
+        if buffers is not None and not buffers.empty:
+            buffers.plot(
+                ax=ax, color=colour, alpha=0.45, edgecolor=colour,
+                linewidth=0.8, zorder=2,
+            )
+        ax.plot(
+            track["lon"], track["lat"], color=CHD_RED, linewidth=1.6,
+            marker="o", markersize=3, zorder=5,
+        )
+        ax.set_xlim(
+            min(track["lon"].min() - 3, 116), max(track["lon"].max() + 3, 128)
+        )
+        ax.set_ylim(
+            min(track["lat"].min() - 4, 6), max(track["lat"].max() + 4, 22)
+        )
+        ax.set_title(label, fontweight="bold", fontsize=10)
+        ax.set_xlabel("Longitude")
+        ax.legend(
+            handles=[
+                mpatches.Patch(color=colour, alpha=0.6, label="64 kt swath"),
+                mpatches.Patch(
+                    color=REGION_COLOUR, alpha=0.45, label="Target regions"
+                ),
+                Line2D([], [], color=CHD_RED, marker="o", markersize=3,
+                       label="CMA forecast track"),
+            ],
+            loc="lower left", fontsize=7.5,
+        )
+    axes[0].set_ylabel("Latitude")
+
+    title = (
+        f"{expand_category(bulletin['category'])} {bulletin['storm_name']} "
+        f"({bulletin['storm_id']})"
+    )
+    subtitle = (
+        f"CMA forecast issued {bulletin['issue_time']:%Y-%m-%d %H:%M UTC}"
+    )
+    expected = (readiness_result or {}).get("expected_landfall")
+    if expected and expected.get("makes_landfall"):
+        subtitle += (
+            f"  |  expected landfall as a {expected['landfall_category']}: "
+            f"{expected['landfall_wind_kph_1min']:.0f} kph 1-min / "
+            f"{expected['landfall_wind_kph_10min']:.0f} kph 10-min"
+        )
+    fig.suptitle(f"{title}\n{subtitle}", fontweight="bold", fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
+def plot_region_share_comparison(
+    region_by_source: dict,
+    speed_kt: int = None,
+    share_threshold: float = None,
+    figsize=(8.5, 5),
+):
+    """Share of each target region exposed, one bar per source."""
+    from src.constants import (
+        EXPOSURE_SHARE_THRESHOLD,
+        EXPOSURE_TRIGGER_SPEED_KT,
+    )
+
+    speed_kt = speed_kt or EXPOSURE_TRIGGER_SPEED_KT
+    share_threshold = (
+        EXPOSURE_SHARE_THRESHOLD
+        if share_threshold is None
+        else share_threshold
+    )
+
+    frames = {
+        label: df[df["speed_kt"] == speed_kt]
+        for label, df in region_by_source.items()
+        if df is not None and not df.empty
+    }
+    frames = {k: v for k, v in frames.items() if not v.empty}
+
+    fig, ax = plt.subplots(figsize=figsize)
+    if not frames:
+        ax.text(
+            0.5, 0.5, "No population exposed in the target regions",
+            ha="center", va="center", fontsize=11, color="#666",
+        )
+        ax.axis("off")
+        return fig
+
+    first = list(frames.values())[0]
+    order = (
+        first.sort_values("share_exposed", ascending=True)["region_name"]
+        .tolist()
+    )
+    y = np.arange(len(order))
+    height = 0.8 / len(frames)
+
+    for i, (label, df) in enumerate(frames.items()):
+        lookup = df.set_index("region_name")["share_exposed"]
+        values = [float(lookup.get(name, 0)) * 100 for name in order]
+        ax.barh(
+            y + i * height,
+            values,
+            height=height,
+            color=SOURCE_COLOURS.get(label, CHD_GREEN),
+            edgecolor="white",
+            linewidth=0.5,
+            label=label,
+            alpha=0.85,
+        )
+
+    ax.axvline(
+        share_threshold * 100, color=CHD_GREEN, linestyle="--", linewidth=1.4,
+        label=f"Trigger: {share_threshold:.0%} of region",
+    )
+    ax.set_yticks(y + 0.4 - height / 2)
+    ax.set_yticklabels(order, fontsize=8)
+    ax.set_xlim(0, 105)
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
+    ax.set_xlabel(
+        f"Share of region population inside the {int(speed_kt)} kt wind field"
+    )
+    ax.set_title(
+        "Population exposed by target region, both sources",
+        fontweight="bold", fontsize=10,
     )
     ax.legend(fontsize=8, loc="lower right")
     ax.spines[["top", "right"]].set_visible(False)

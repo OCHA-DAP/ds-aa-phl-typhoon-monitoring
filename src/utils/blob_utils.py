@@ -41,6 +41,11 @@ LOG_COLUMNS = [
     "exposure_trigger_regions",
     "max_region_share_exposed",
     "national_share_exposed_64kt",
+    "exposure_source",
+    "climada_pop_exposed_64kt",
+    "climada_national_share_64kt",
+    "climada_max_region_share",
+    "climada_triggered",
     "email_campaign_id",
 ]
 

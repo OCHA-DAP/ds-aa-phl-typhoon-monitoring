@@ -100,6 +100,31 @@ that supplies the exposed counts, so numerator and denominator are consistent.
 Taking the denominator from a different source inflates it and understates the
 share.
 
+### Two exposure sources
+
+Exposure is estimated from two independent wind footprints so they can be
+compared on live storms before one is settled on.
+
+| Source | Footprint | Wind basis |
+|---|---|---|
+| `cma_radii` | CMA's own 64 kt quadrant radii, observed at 00HR and carried along the forecast track | 2-minute (CMA) |
+| `climada` | Holland 2008 wind field from CLIMADA `TropCyclone`, evaluated at every forecast step | 1-minute |
+
+Both footprints are shaped identically and run through the same exposure
+code, so the two numbers differ only because the geometry differs. **The
+trigger decision follows `cma_radii`**, since that is the method notebook 13
+used to calibrate the 50% threshold. CLIMADA is reported alongside, in the
+region-share chart and an "Exposure by source" line in the email, and logged
+as `climada_*` columns.
+
+CLIMADA is a heavier model: it only runs once the CMA swath shows the storm can
+reach land, on a grid covering The Philippines only. It is **optional**: if
+CLIMADA is not installed the pipeline logs that the comparison was skipped and
+carries on with the CMA radii. On the synthetic test storm the two sources
+differ substantially, 54% versus 89% of Region II exposed, partly because
+CLIMADA's 64 kt is a 1-minute wind and CMA's radii are 2-minute. No 2026 storm
+has yet had a 64 kt swath reaching land, so there is no live comparison yet.
+
 ## Target regions
 
 | Code | Region |
@@ -318,6 +343,19 @@ Listmonk on this instance has been seen to accept a campaign and then drop the
 send silently, reporting `finished` with zero recipients. Sends are therefore
 read back and retried up to three times, and the campaign ID is written to the
 monitoring log so a send can be checked against the Listmonk UI.
+
+## Enabling CLIMADA
+
+CLIMADA needs system GDAL and does not `pip install` on Windows or on a bare
+Actions runner, so it is not in `requirements.txt` and the scheduled runs do
+not have it. To enable the comparison:
+
+* **Locally:** the `IBF_TYPHOON_DATA_PIPELINE/.venv` already has CLIMADA
+  3.1.0; run the pipeline from there. Or install `requirements-climada.txt`
+  into an environment that has GDAL (conda is CLIMADA's supported route).
+* **In Actions:** add `sudo apt-get install -y libgdal-dev` and a matching
+  `gdal` pin before `pip install -r requirements-climada.txt`. Expect a
+  minute or two on each install.
 
 ## Development
 

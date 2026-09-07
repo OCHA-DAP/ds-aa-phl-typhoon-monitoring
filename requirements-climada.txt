@@ -1,0 +1,3 @@
+# Optional. Enables the CLIMADA exposure source (see README, Enabling CLIMADA).
+# Needs system GDAL first; will not install on a bare runner or on Windows pip.
+climada==3.1.0

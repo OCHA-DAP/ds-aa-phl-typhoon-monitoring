@@ -94,6 +94,20 @@ EXPOSURE_ADM_PCODE_COL = "adm2_src"
 EXPOSURE_TRIGGER_SPEED_KT = 64
 EXPOSURE_SHARE_THRESHOLD = 0.5
 
+# Exposure is estimated from two independent wind footprints so they can be
+# compared on live storms before one is settled on:
+#
+#   cma_radii  CMA's own 64 kt quadrant radii, observed at 00HR and carried
+#              along the forecast track. This is the method notebook 13 used
+#              to calibrate the 50% threshold.
+#   climada    Holland 2008 wind field from CLIMADA, evaluated at every
+#              forecast step.
+#
+# The trigger decision stays on cma_radii, since that is what the threshold
+# was calibrated against. CLIMADA is reported alongside for comparison.
+EXPOSURE_TRIGGER_SOURCE = "cma_radii"
+EXPOSURE_COMPARE_SOURCES = ["cma_radii", "climada"]
+
 # ---------------------------------------------------------------------------
 # Alerting
 # ---------------------------------------------------------------------------

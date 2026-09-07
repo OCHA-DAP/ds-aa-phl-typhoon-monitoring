@@ -25,6 +25,8 @@ matplotlib.use("Agg")
 
 from src.constants import (  # noqa: E402
     EXPOSURE_ADM_LEVEL,
+    EXPOSURE_TRIGGER_SOURCE,
+    EXPOSURE_TRIGGER_SPEED_KT,
     PAR_POLYGON,
     EXPOSURE_SHARE_THRESHOLD,
     EXPOSURE_SPEEDS_KT,
@@ -141,6 +143,87 @@ def should_email(
     return bool(relevant)
 
 
+def _climada_buffers(bulletin):
+    """CLIMADA footprint, or None if CLIMADA is not installed here.
+
+    CLIMADA needs system GDAL, so it is optional: where it is missing the
+    monitoring still runs on the CMA radii and simply reports no comparison.
+    """
+    try:
+        from src.monitoring import climada_exposure as cxp
+    except ImportError as exc:
+        print(f"    CLIMADA not available ({exc}), comparison skipped")
+        return None
+    try:
+        return cxp.build_climada_buffers(bulletin)
+    except ImportError:
+        # CLIMADA itself is imported lazily inside the module, so a missing
+        # install surfaces here rather than at module import.
+        print("    CLIMADA not installed, comparison skipped")
+        return None
+    except Exception as exc:  # noqa: BLE001 - never fail the run on this
+        print(f"    CLIMADA footprint failed ({type(exc).__name__}: {exc})")
+        return None
+
+
+def _exposure_for_source(buffers, da_pop, adm, regions, pcode_col, name_col,
+                         expected_landfall):
+    """Run one footprint through the exposure calculation."""
+    if buffers is None or buffers.empty:
+        return None
+    df_exposure = exp.calculate_exposure(
+        buffers, da_pop, adm, pcode_col, name_col
+    )
+    df_region = exp.region_exposure(buffers, da_pop, regions)
+    return {
+        "buffers": buffers,
+        "exposure": df_exposure,
+        "summary": exp.summarise_exposure(df_exposure, group_col=name_col),
+        "region": df_region,
+        "trigger": exp.check_exposure_trigger(
+            df_region, expected_landfall=expected_landfall
+        ),
+        "national": exp.national_exposure(
+            buffers, da_pop, adm, df_exposure=df_exposure
+        ),
+        "totals": exp.summarise_exposure(df_exposure)
+        .set_index("speed_kt")["pop_exposed"]
+        .to_dict(),
+    }
+
+
+def _comparison_payload(cma_res, climada_res):
+    """Format both sources for the email, as (label, figures) pairs."""
+    speed = EXPOSURE_TRIGGER_SPEED_KT
+
+    def fmt(res_src):
+        if res_src is None:
+            return None
+        nat = res_src["national"]
+        row = nat[nat["speed_kt"] == speed]
+        trig = res_src["trigger"]
+        return {
+            "people": (
+                f"{int(row['pop_exposed'].iloc[0]):,}"
+                if not row.empty
+                else "0"
+            ),
+            "national_share": (
+                f"{row['share_exposed'].iloc[0]:.1%}"
+                if not row.empty
+                else "0%"
+            ),
+            "region_share": (
+                f"{trig['max_share']:.0%} of {trig['max_share_region']}"
+                if trig["max_share"] is not None
+                else "none exposed"
+            ),
+            "trigger": "reached" if trig["triggered"] else "not reached",
+        }
+
+    return [("CMA radii", fmt(cma_res)), ("CLIMADA", fmt(climada_res))]
+
+
 def _swath_reaches_country(buffers, adm) -> bool:
     """Can the forecast wind field touch The Philippines at all?
 
@@ -233,62 +316,74 @@ def process_bulletin(
 
     totals, df_summary, df_exposure = {}, None, None
     df_region, exposure_trigger, df_national = None, None, None
-    buffers = exp.build_wind_buffers(bulletin, speeds=EXPOSURE_SPEEDS_KT)
+    climada, cma_res = None, None
 
+    # Two independent footprints for the same storm, so they can be compared.
+    buffers = exp.build_wind_buffers(bulletin, speeds=EXPOSURE_SPEEDS_KT)
+    # The CLIMADA wind field takes roughly a minute and a half, so it is only
+    # built once the CMA swath shows the storm can actually reach land.
+    # Running it on every poll would add that cost to storms in mid-Pacific
+    # that will never be reported on.
     reaches_country = _swath_reaches_country(buffers, adm)
+    buffers_climada = (
+        _climada_buffers(bulletin) if reaches_country else None
+    )
     if not reaches_country and not buffers.empty:
         print("    wind field does not reach land, exposure is zero")
 
     if reaches_country:
         da_pop = pop_loader()
-        df_exposure = exp.calculate_exposure(
-            buffers, da_pop, adm, pcode_col, name_col
-        )
-        df_summary = exp.summarise_exposure(df_exposure, group_col=name_col)
-        totals = (
-            exp.summarise_exposure(df_exposure)
-            .set_index("speed_kt")["pop_exposed"]
-            .to_dict()
-        )
-        for speed, value in sorted(totals.items(), reverse=True):
-            print(f"    exposure {int(speed)} kt: {int(value):,} people")
 
-        # Exposure is reported both ways: absolute headcount above, and the
-        # share of each target region, which is how the trigger is stated.
-        df_region = exp.region_exposure(buffers, da_pop, regions)
-        exposure_trigger = exp.check_exposure_trigger(
-            df_region, expected_landfall=result["expected_landfall"]
+        cma_res = _exposure_for_source(
+            buffers, da_pop, adm, regions, pcode_col, name_col,
+            result["expected_landfall"],
         )
-        for _, r in df_region[
-            df_region["speed_kt"] == exposure_trigger["speed_kt"]
-        ].iterrows():
-            print(
-                f"    {r['region_name']}: {r['share_exposed']:.0%} of region "
-                f"({int(r['pop_exposed']):,} of {int(r['region_pop']):,})"
-            )
-        print(
-            "    exposure trigger "
-            f"({EXPOSURE_SHARE_THRESHOLD:.0%} of a region at "
-            f"{exposure_trigger['speed_kt']} kt): "
-            f"{'REACHED' if exposure_trigger['triggered'] else 'not reached'}"
-        )
-        print(
-            "      super typhoon landfall: "
-            f"{exposure_trigger['super_typhoon']} "
-            f"| regions meeting the share: "
-            f"{exposure_trigger['share_regions'] or 'none'}"
+        climada = _exposure_for_source(
+            buffers_climada, da_pop, adm, regions, pcode_col, name_col,
+            result["expected_landfall"],
         )
 
-        df_national = exp.national_exposure(
-            buffers, da_pop, adm, df_exposure=df_exposure
-        )
-        for _, r in df_national.iterrows():
-            print(
-                f"    national {int(r['speed_kt'])} kt: "
-                f"{r['share_exposed']:.1%} of The Philippines "
-                f"({int(r['pop_exposed']):,} of {int(r['national_pop']):,})"
+        if cma_res is not None:
+            df_exposure = cma_res["exposure"]
+            df_summary = cma_res["summary"]
+            totals = cma_res["totals"]
+            df_region = cma_res["region"]
+            exposure_trigger = cma_res["trigger"]
+            df_national = cma_res["national"]
+
+        speed = EXPOSURE_TRIGGER_SPEED_KT
+        print(f"    exposure at {speed} kt, by source:")
+        for label, res_src in (("CMA radii", cma_res), ("CLIMADA", climada)):
+            if res_src is None:
+                print(f"      {label:<10}: not available")
+                continue
+            trig = res_src["trigger"]
+            nat = res_src["national"]
+            nat_row = nat[nat["speed_kt"] == speed]
+            nat_txt = (
+                f"{int(nat_row['pop_exposed'].iloc[0]):,} people "
+                f"({nat_row['share_exposed'].iloc[0]:.1%} of PHL)"
+                if not nat_row.empty
+                else "no national figure"
             )
-    elif buffers.empty:
+            share = (
+                f"{trig['max_share']:.0%} of {trig['max_share_region']}"
+                if trig["max_share"] is not None
+                else "no region exposed"
+            )
+            print(
+                f"      {label:<10}: {nat_txt} | most exposed region: "
+                f"{share} | trigger "
+                f"{'REACHED' if trig['triggered'] else 'not reached'}"
+            )
+
+        if exposure_trigger is not None:
+            print(
+                f"    trigger source: {EXPOSURE_TRIGGER_SOURCE} "
+                f"| super typhoon landfall: "
+                f"{exposure_trigger['super_typhoon']}"
+            )
+    elif buffers.empty and buffers_climada is None:
         print("    no wind radii in this bulletin, exposure not computed")
 
     row = {
@@ -326,6 +421,19 @@ def process_bulletin(
             exposure_trigger["max_share"] if exposure_trigger else None
         ),
         "national_share_exposed_64kt": _national_share(df_national, 64),
+        "exposure_source": EXPOSURE_TRIGGER_SOURCE,
+        "climada_pop_exposed_64kt": (
+            climada["totals"].get(64) if climada else None
+        ),
+        "climada_national_share_64kt": (
+            _national_share(climada["national"], 64) if climada else None
+        ),
+        "climada_max_region_share": (
+            climada["trigger"]["max_share"] if climada else None
+        ),
+        "climada_triggered": (
+            climada["trigger"]["triggered"] if climada else None
+        ),
         "email_campaign_id": None,
     }
 
@@ -335,14 +443,32 @@ def process_bulletin(
         print("    no email for this bulletin")
         return row, df_exposure
 
+    # The map always shows the CMA radii swath only. The source comparison
+    # lives in the region-share chart and the text, where the numbers are
+    # what matter; two maps side by side was more picture than signal.
     fig_map = plotting.plot_forecast_map(
-        bulletin, regions, buffers=buffers, adm1=adm1, readiness_result=result
+        bulletin, regions, buffers=buffers, adm1=adm1,
+        readiness_result=result,
     )
-    fig_region_share = plotting.plot_region_share(df_region)
+    if climada is not None and df_region is not None:
+        fig_region_share = plotting.plot_region_share_comparison(
+            {"CMA radii": df_region, "CLIMADA": climada["region"]}
+        )
+    else:
+        fig_region_share = plotting.plot_region_share(df_region)
 
     if args.dry_run:
         print("    dry run, email not sent")
         return row, df_exposure
+
+    # Only compare when there are genuinely two sources. Otherwise the email
+    # is a clean single-source alert rather than one carrying a "not
+    # available" line.
+    comparison = (
+        _comparison_payload(cma_res, climada)
+        if reaches_country and climada is not None and cma_res is not None
+        else None
+    )
 
     campaign_id = send_monitoring_email(
         result,
@@ -350,6 +476,7 @@ def process_bulletin(
         fig_region_share=fig_region_share,
         exposure_trigger=exposure_trigger,
         df_national=df_national,
+        comparison=comparison,
         test=args.test,
     )
     print(f"    email sent, Listmonk campaign {campaign_id}")
