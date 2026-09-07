@@ -70,22 +70,6 @@ jobs:
           python-version: '3.11.4'
           cache: 'pip'
 
-      - name: Cache key for admin boundaries
-        # GitHub expressions have no date function, so the month is computed
-        # in a step and used in the key below.
-        id: codab_key
-        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
-
-      - name: Restore admin boundaries
-        # Fieldmaps CODAB is 54 MB of coastline and took a minute to fetch on
-        # every run. Kept between runs here, keyed by month so it refreshes
-        # on roughly the cadence boundaries actually change. A miss just
-        # means one slow run that repopulates it.
-        uses: actions/cache@v6
-        with:
-          path: .codab_cache
-          key: codab-phl-${{ steps.codab_key.outputs.month }}-${{ hashFiles('src/datasources/codab.py') }}
-
       - name: Install dependencies
         # pip's vendored truststore raises an unhandled AttributeError when a
         # TLS connection drops mid-handshake, which failed two runs on

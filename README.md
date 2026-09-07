@@ -204,19 +204,19 @@ stage. Two costs dominated and both have been removed:
 
 | Stage | Before | After |
 |---|---|---|
-| Admin boundaries (fieldmaps) | 64 s | **0.2 s** warm, from a local cache |
+| Admin boundaries (fieldmaps) | 64 s | **~30 s**, read from a blob copy |
 | CLIMADA wind field | 88 s | **24 s**, grid restricted to The Philippines |
 | Everything else | ~50 s | ~50 s |
 
-Boundaries are cached three deep: a local file (`.codab_cache/`, kept between
-Actions runs by `actions/cache` keyed on the month), a blob copy under
-`ds-aa-phl-typhoon-monitoring/cache/`, and fieldmaps as the source. Each miss
-populates the layers above it, so a cold runner pays about 25 s once a month
-and every other run reads a file. Geometry is stored as WKB in ordinary
-parquet, so the cache does not depend on geoparquet support.
+Boundaries are cached as a blob copy under
+`ds-aa-phl-typhoon-monitoring/cache/`, refreshed from fieldmaps once it is 30
+days old. Geometry is stored as WKB in ordinary parquet, so the cache does not
+depend on geoparquet support. The read still costs about 30 s because
+Philippine coastline geometry is 26 MB per admin level, but that is half the
+fieldmaps fetch and involves no extra moving parts.
 
-A quiet poll with no storm in play takes about a minute, almost all of it
-GitHub overhead. A storm run should stay under two and a half minutes.
+A quiet poll with no storm in play takes about a minute and a half. A storm
+run should stay around three minutes.
 
 ## Running it
 

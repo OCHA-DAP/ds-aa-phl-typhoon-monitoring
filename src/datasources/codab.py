@@ -1,15 +1,15 @@
 """Philippines administrative boundaries used for triggers and exposure.
 
 Boundaries are cached on blob. Fetching them from fieldmaps took about a
-minute on every run, which was the single largest cost in the pipeline and
-pure overhead: admin boundaries change a few times a year, not every 15
-minutes. The cache is refreshed when it passes CACHE_MAX_AGE_DAYS, and any
-cache failure falls back to fieldmaps so monitoring never breaks on it.
+minute on every run, the single largest cost in the pipeline and pure
+overhead: admin boundaries change a few times a year, not every 15 minutes.
+Reading the blob copy takes 25 to 35 seconds because Philippine coastline
+geometry is 26 MB per admin level. The cache is refreshed when it passes
+CACHE_MAX_AGE_DAYS, and any cache failure falls back to fieldmaps so
+monitoring never breaks on it.
 """
 
-import os
 from datetime import datetime, timezone
-from pathlib import Path
 
 import geopandas as gpd
 import ocha_stratus as stratus
@@ -27,47 +27,8 @@ from src.constants import (
 
 CACHE_MAX_AGE_DAYS = 30
 
-# The blob cache still costs a 26 MB download per admin level, because PHL
-# coastline geometry is large. A local copy makes warm runs a file read; on
-# CI it is kept between runs by actions/cache, so fieldmaps and blob are both
-# hit only when the key rolls over.
-LOCAL_CACHE_DIR = Path(os.getenv("CODAB_CACHE_DIR", ".codab_cache"))
-
-
 def _cache_blob(admin_level: int) -> str:
     return f"{PROJECT_PREFIX}/cache/codab_adm{admin_level}.parquet"
-
-
-def _local_path(admin_level: int) -> Path:
-    return LOCAL_CACHE_DIR / f"codab_adm{admin_level}.parquet"
-
-
-def _read_local(admin_level: int):
-    """Return boundaries from the local cache, or None."""
-    path = _local_path(admin_level)
-    if not path.exists():
-        return None
-    try:
-        age_days = (
-            datetime.now(timezone.utc).timestamp() - path.stat().st_mtime
-        ) / 86400
-        if age_days > CACHE_MAX_AGE_DAYS:
-            return None
-        df = pd.read_parquet(path)
-        geometry = df["_geometry_wkb"].apply(wkb.loads)
-        df = df.drop(columns=["_geometry_wkb", "_cached_at"])
-        return gpd.GeoDataFrame(df, geometry=geometry, crs=4326)
-    except Exception:
-        return None
-
-
-def _write_local(df: pd.DataFrame, admin_level: int) -> None:
-    """Write the WKB frame to the local cache. Never raises."""
-    try:
-        LOCAL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        df.to_parquet(_local_path(admin_level), index=False)
-    except Exception as exc:  # noqa: BLE001
-        print(f"    could not write local CODAB cache: {exc}")
 
 
 def _to_wkb_frame(gdf: gpd.GeoDataFrame) -> pd.DataFrame:
@@ -119,29 +80,22 @@ def _write_cache(df: pd.DataFrame, admin_level: int) -> None:
 
 
 def load_adm(admin_level: int = 1, use_cache: bool = True):
-    """Load PHL CODAB at the requested admin level.
+    """Load PHL CODAB at the requested admin level, from blob if fresh.
 
-    Tried in order: local file, blob cache, fieldmaps. Each miss populates
-    the caches above it, so a cold runner pays once and every later run in
-    the same cache window is a local read.
+    The blob copy is refreshed from fieldmaps once it passes
+    CACHE_MAX_AGE_DAYS, so boundaries update on roughly the cadence they
+    actually change without anyone having to remember.
     """
     if use_cache:
-        local = _read_local(admin_level)
-        if local is not None:
-            return local
-
         cached = _read_cache(admin_level)
         if cached is not None:
-            _write_local(_to_wkb_frame(cached), admin_level)
             return cached
 
     gdf = stratus.codab.load_codab_from_fieldmaps(
         iso3=ISO3, admin_level=admin_level
     ).to_crs(4326)
     if use_cache:
-        frame = _to_wkb_frame(gdf)
-        _write_cache(frame, admin_level)
-        _write_local(frame, admin_level)
+        _write_cache(_to_wkb_frame(gdf), admin_level)
     return gdf
 
 
