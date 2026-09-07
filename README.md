@@ -197,6 +197,27 @@ The workflow also accepts a `repository_dispatch` event of type
 lands rather than waiting for the next poll. A `concurrency` group prevents
 two runs from processing the same bulletin and double-sending.
 
+## Run time
+
+A full run on a landfalling storm, the heaviest path, was measured stage by
+stage. Two costs dominated and both have been removed:
+
+| Stage | Before | After |
+|---|---|---|
+| Admin boundaries (fieldmaps) | 64 s | **0.2 s** warm, from a local cache |
+| CLIMADA wind field | 88 s | **24 s**, grid restricted to The Philippines |
+| Everything else | ~50 s | ~50 s |
+
+Boundaries are cached three deep: a local file (`.codab_cache/`, kept between
+Actions runs by `actions/cache` keyed on the month), a blob copy under
+`ds-aa-phl-typhoon-monitoring/cache/`, and fieldmaps as the source. Each miss
+populates the layers above it, so a cold runner pays about 25 s once a month
+and every other run reads a file. Geometry is stored as WKB in ordinary
+parquet, so the cache does not depend on geoparquet support.
+
+A quiet poll with no storm in play takes about a minute, almost all of it
+GitHub overhead. A storm run should stay under two and a half minutes.
+
 ## Running it
 
 ```bash

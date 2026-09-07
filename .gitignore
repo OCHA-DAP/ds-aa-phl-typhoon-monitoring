@@ -9,3 +9,4 @@ temp/
 output/
 data/
 .DS_Store
+.codab_cache/
