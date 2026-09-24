@@ -111,6 +111,13 @@ jobs:
           DSCI_LISTMONK_API_URL: ${{ secrets.DSCI_LISTMONK_API_URL }}
           DSCI_LISTMONK_API_USERNAME: ${{ secrets.DSCI_LISTMONK_API_USERNAME }}
           DSCI_LISTMONK_API_KEY: ${{ secrets.DSCI_LISTMONK_API_KEY }}
+          # Temporary SMTP fallback for the Listmonk outage (see
+          # src/monitoring/smtp_fallback.py); remove once Listmonk is
+          # healthy again.
+          DSCI_AWS_EMAIL_HOST: ${{ secrets.DSCI_AWS_EMAIL_HOST }}
+          DSCI_AWS_EMAIL_USERNAME: ${{ secrets.DSCI_AWS_EMAIL_USERNAME }}
+          DSCI_AWS_EMAIL_PASSWORD: ${{ secrets.DSCI_AWS_EMAIL_PASSWORD }}
+          DSCI_AWS_EMAIL_ADDRESS: ${{ secrets.DSCI_AWS_EMAIL_ADDRESS }}
         run: |
           ARGS=()
           if [ -n "$INPUT_BLOB" ]; then ARGS+=(--blob "$INPUT_BLOB"); fi
