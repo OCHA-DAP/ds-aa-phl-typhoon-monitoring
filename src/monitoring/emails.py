@@ -24,6 +24,7 @@ from src.constants import (
     LISTMONK_LIST_ID_TEST,
     READINESS_THRESHOLD_KPH_1MIN,
 )
+from src.monitoring import smtp_fallback
 from src.utils.categories import expand_category
 
 PH_TZ = timezone(timedelta(hours=8))
@@ -373,15 +374,25 @@ def send_monitoring_email(
     if list_id is None:
         raise ValueError("No Listmonk list configured for this mode")
 
-    campaign_id = client.create_campaign(
-        name=campaign_name,
-        subject=subject,
-        body=html_body,
-        list_ids=[list_id],
-    )
-    if not _send_and_verify(client, campaign_id):
-        print(
-            f"  WARNING: Listmonk campaign {campaign_id} reported no "
-            "recipients sent. Check the Listmonk UI."
+    try:
+        campaign_id = client.create_campaign(
+            name=campaign_name,
+            subject=subject,
+            body=html_body,
+            list_ids=[list_id],
         )
-    return campaign_id
+        if not _send_and_verify(client, campaign_id):
+            print(
+                f"  WARNING: Listmonk campaign {campaign_id} reported no "
+                "recipients sent. Check the Listmonk UI."
+            )
+        return campaign_id
+    except Exception as exc:
+        # TEMPORARY (2026-09-24 Listmonk outage): fall back to plain SMTP
+        # so an alert still goes out. Remove once Listmonk is confirmed
+        # healthy again - see smtp_fallback.py's docstring.
+        print(
+            f"  WARNING: Listmonk send failed ({exc}); falling back to SMTP."
+        )
+        smtp_fallback.send_via_smtp(subject, html_body, live=not test)
+        return None
