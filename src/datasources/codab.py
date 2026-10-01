@@ -130,6 +130,24 @@ def load_target_regions() -> gpd.GeoDataFrame:
     return gdf.to_crs(4326)
 
 
+def load_all_regions() -> gpd.GeoDataFrame:
+    """Load every PHL admin-1 region, named from the CODAB boundary itself.
+
+    Unlike ``load_target_regions``, this is not filtered to the framework's
+    five target regions. It exists so the exposure monitoring output can
+    show every region's exposure level, not just the target regions -
+    trigger logic and the forecast map stay scoped to ``load_target_regions``
+    and are unaffected by this.
+    """
+    adm1 = load_adm(admin_level=1)
+    col = _pcode_col(adm1, 1)
+    _, name_col = adm_columns(1)
+    gdf = adm1.copy()
+    gdf["region_pcode"] = gdf[col]
+    gdf["region_name"] = gdf[name_col]
+    return gdf.to_crs(4326)
+
+
 def adm_columns(admin_level: int):
     """Pcode and name column names for a CODAB admin level.
 

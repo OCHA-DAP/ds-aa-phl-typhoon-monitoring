@@ -195,7 +195,7 @@ def plot_region_share(
     share_threshold: float = None,
     figsize=(8, 4.5),
 ):
-    """Share of each target region's population inside the wind field.
+    """Share of each PHL region's population inside the wind field.
 
     This is the form the observational exposure trigger is stated in: at
     least half of a region's population inside the wind field at
@@ -217,7 +217,7 @@ def plot_region_share(
     fig, ax = plt.subplots(figsize=figsize)
     if df_region_exposure is None or df_region_exposure.empty:
         ax.text(
-            0.5, 0.5, "No population exposed in the target regions",
+            0.5, 0.5, "No population exposed",
             ha="center", va="center", fontsize=11, color="#666",
         )
         ax.axis("off")
@@ -228,11 +228,16 @@ def plot_region_share(
     ].sort_values("share_exposed", ascending=True)
     if sub.empty:
         ax.text(
-            0.5, 0.5, f"No {int(speed_kt)} kt wind field over target regions",
+            0.5, 0.5, f"No {int(speed_kt)} kt wind field over any region",
             ha="center", va="center", fontsize=11, color="#666",
         )
         ax.axis("off")
         return fig
+
+    # Grows past the default height once there are more regions than the
+    # five-region target set this was originally sized for (e.g. all 17
+    # PHL regions), so bars stay legible rather than overlapping.
+    fig.set_figheight(max(figsize[1], 0.35 * len(sub) + 1))
 
     shares = sub["share_exposed"].fillna(0) * 100
     colours = [
@@ -263,7 +268,7 @@ def plot_region_share(
     ax.set_xlabel(f"Share of region population inside the {int(speed_kt)} kt wind field")
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
     ax.set_title(
-        "Population exposed by target region, CMA forecast",
+        "Population exposed by region, CMA forecast",
         fontweight="bold",
         fontsize=10,
     )
@@ -363,7 +368,7 @@ def plot_region_share_comparison(
     share_threshold: float = None,
     figsize=(8.5, 5),
 ):
-    """Share of each target region exposed, one bar per source."""
+    """Share of each PHL region exposed, one bar per source."""
     from src.constants import (
         EXPOSURE_SHARE_THRESHOLD,
         EXPOSURE_TRIGGER_SPEED_KT,
@@ -386,7 +391,7 @@ def plot_region_share_comparison(
     fig, ax = plt.subplots(figsize=figsize)
     if not frames:
         ax.text(
-            0.5, 0.5, "No population exposed in the target regions",
+            0.5, 0.5, "No population exposed",
             ha="center", va="center", fontsize=11, color="#666",
         )
         ax.axis("off")
@@ -397,6 +402,9 @@ def plot_region_share_comparison(
         first.sort_values("share_exposed", ascending=True)["region_name"]
         .tolist()
     )
+    # Same reasoning as plot_region_share: grow past the default height
+    # once plotting more than the five target regions.
+    fig.set_figheight(max(figsize[1], 0.35 * len(order) + 1))
     y = np.arange(len(order))
     height = 0.8 / len(frames)
 
@@ -426,7 +434,7 @@ def plot_region_share_comparison(
         f"Share of region population inside the {int(speed_kt)} kt wind field"
     )
     ax.set_title(
-        "Population exposed by target region, both sources",
+        "Population exposed by region, both sources",
         fontweight="bold", fontsize=10,
     )
     ax.legend(fontsize=8, loc="lower right")
