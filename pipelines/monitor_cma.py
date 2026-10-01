@@ -172,20 +172,28 @@ def _climada_buffers(bulletin):
         return None
 
 
-def _exposure_for_source(buffers, da_pop, adm, regions, pcode_col, name_col,
-                         expected_landfall):
-    """Run one footprint through the exposure calculation."""
+def _exposure_for_source(buffers, da_pop, adm, regions, all_regions,
+                         pcode_col, name_col, expected_landfall):
+    """Run one footprint through the exposure calculation.
+
+    ``regions`` (the five framework target regions) drives the trigger
+    check, exactly as before. ``all_regions`` (every PHL admin-1 region)
+    is used only for the exposure monitoring display, so the chart shows
+    exposure levels nationwide without changing trigger behaviour.
+    """
     if buffers is None or buffers.empty:
         return None
     df_exposure = exp.calculate_exposure(
         buffers, da_pop, adm, pcode_col, name_col
     )
     df_region = exp.region_exposure(buffers, da_pop, regions)
+    df_region_all = exp.region_exposure(buffers, da_pop, all_regions)
     return {
         "buffers": buffers,
         "exposure": df_exposure,
         "summary": exp.summarise_exposure(df_exposure, group_col=name_col),
         "region": df_region,
+        "region_all": df_region_all,
         "trigger": exp.check_exposure_trigger(
             df_region, expected_landfall=expected_landfall
         ),
@@ -267,8 +275,8 @@ def _lazy_population(adm):
 
 
 def process_bulletin(
-    bulletin, regions, adm, adm1, pop_loader, pcode_col, name_col, args,
-    df_log,
+    bulletin, regions, all_regions, adm, adm1, pop_loader, pcode_col,
+    name_col, args, df_log,
 ):
     """Evaluate one bulletin and return its monitoring log row."""
     label = (
@@ -341,12 +349,12 @@ def process_bulletin(
         da_pop = pop_loader()
 
         cma_res = _exposure_for_source(
-            buffers, da_pop, adm, regions, pcode_col, name_col,
+            buffers, da_pop, adm, regions, all_regions, pcode_col, name_col,
             result["expected_landfall"],
         )
         climada = _exposure_for_source(
-            buffers_climada, da_pop, adm, regions, pcode_col, name_col,
-            result["expected_landfall"],
+            buffers_climada, da_pop, adm, regions, all_regions, pcode_col,
+            name_col, result["expected_landfall"],
         )
 
         if cma_res is not None:
@@ -456,12 +464,13 @@ def process_bulletin(
         bulletin, regions, buffers=buffers, adm1=adm1,
         readiness_result=result,
     )
-    if climada is not None and df_region is not None:
+    df_region_all = cma_res["region_all"] if cma_res else None
+    if climada is not None and df_region_all is not None:
         fig_region_share = plotting.plot_region_share_comparison(
-            {"CMA radii": df_region, "CLIMADA": climada["region"]}
+            {"CMA radii": df_region_all, "CLIMADA": climada["region_all"]}
         )
     else:
-        fig_region_share = plotting.plot_region_share(df_region)
+        fig_region_share = plotting.plot_region_share(df_region_all)
 
     if args.dry_run:
         print("    dry run, email not sent")
@@ -495,6 +504,7 @@ def main():
 
     print("Loading target regions and admin boundaries...")
     regions = codab.load_target_regions()
+    all_regions = codab.load_all_regions()
     adm1 = codab.load_adm(1)
     adm = codab.load_exposure_adm(admin_level=EXPOSURE_ADM_LEVEL)
     pcode_col, name_col = codab.adm_columns(EXPOSURE_ADM_LEVEL)
@@ -569,6 +579,7 @@ def main():
         row, df_exposure = process_bulletin(
             bulletin,
             regions,
+            all_regions,
             adm,
             adm1,
             pop_loader,
