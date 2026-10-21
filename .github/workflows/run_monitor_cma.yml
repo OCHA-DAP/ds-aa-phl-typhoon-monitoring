@@ -52,13 +52,13 @@ concurrency:
 
 jobs:
   keep-alive:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Keep schedule alive
         run: echo "Workflow keep-alive ping at $(date -u)"
 
   run-monitoring:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository
