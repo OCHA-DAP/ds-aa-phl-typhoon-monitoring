@@ -136,10 +136,9 @@ PAR_POLYGON = [
 # ---------------------------------------------------------------------------
 # Email
 # ---------------------------------------------------------------------------
-LISTMONK_LIST_ID = 121
+# Live list (everyone, framework live)
+LISTMONK_LIST_ID = 128
 LISTMONK_LIST_ID_TEST = 103
-# Everyone list: unused by any send path, switch to it deliberately at go-live.
-LISTMONK_LIST_ID_EVERYONE = 128
 
 # ---------------------------------------------------------------------------
 # Plotting
