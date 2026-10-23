@@ -254,7 +254,7 @@ def check_exposure_trigger(
 
     Both conditions must hold:
 
-    1. CMA expects the storm to make landfall in a target region as a
+    1. CMA expects the storm to make landfall in a region as a
        **super typhoon** (2-minute sustained wind at or above 51.0 m/s,
        99.1 kt);
     2. at least ``share_threshold`` of that region's population lies inside

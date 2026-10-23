@@ -292,9 +292,9 @@ def _build_body(
           in a target region at or above
           {READINESS_THRESHOLD_KPH_1MIN} kph (1-minute sustained), and is
           monitored from the release of that forecast until landfall.
-          Exposure requires landfall as a Super Typhoon and at least
-          {EXPOSURE_SHARE_THRESHOLD:.0%} of a target region inside the
-          {EXPOSURE_TRIGGER_SPEED_KT} kt wind field. Per-province figures are
+          Exposure requires landfall as a Super Typhoon in any region of the
+          country, with at least {EXPOSURE_SHARE_THRESHOLD:.0%} of that region
+          inside the {EXPOSURE_TRIGGER_SPEED_KT} kt wind field. Per-province figures are
           saved to blob storage.</p>
           <p>For more details on the Anticipatory Action framework for
           typhoons in the Philippines, please refer to the

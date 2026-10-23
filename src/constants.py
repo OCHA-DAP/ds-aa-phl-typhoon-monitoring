@@ -88,7 +88,8 @@ EXPOSURE_ADM_LEVEL = 2
 EXPOSURE_ADM_PCODE_COL = "adm2_src"
 
 # Observational exposure trigger (pa-aa-phl-storms notebook 13): at least half
-# of a target region's population inside the 64-kt wind field. Exposure is
+# of a region's population inside the 64-kt wind field, in any region of
+# the country. Exposure is
 # always reported both ways, as an absolute headcount and as a share of the
 # region, since the share is what the trigger is stated in.
 EXPOSURE_TRIGGER_SPEED_KT = 64

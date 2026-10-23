@@ -57,8 +57,9 @@ independently of the readiness phase.
 ### Exposure trigger
 
 > The exposure trigger is reached when CMA expects the storm to make landfall
-> in a target region **as a Super Typhoon**, **and** at least **50% of that
-> region's population** lies inside the **64 kt** CMA forecast wind field.
+> in **any region of the country** **as a Super Typhoon**, **and** at least
+> **50% of that region's population** lies inside the **64 kt** CMA forecast
+> wind field.
 
 Both conditions must hold. A storm can meet the population share and still not
 reach the trigger if it is not forecast to arrive as a super typhoon.
@@ -89,7 +90,7 @@ headcounts:
 | Reading | Question it answers |
 |---|---|
 | People exposed, by admin 2 | Who is in the path, and where |
-| Share of each target region | Is the exposure trigger reached |
+| Share of each region | Is the exposure trigger reached |
 | Share of the country | How national in scale this storm is |
 
 The email carries the region share and the national figure. Per-province
