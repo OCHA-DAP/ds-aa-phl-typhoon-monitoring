@@ -314,7 +314,7 @@ exactly zero.
 The alert follows the IBF typhoon pipeline email format
 (`IBF-Typhoon-model/src/typhoonmodel/utility_fun/emailstatushtml.py`): a
 scoped `.phl-typhoon` wrapper, a title, a short intro paragraph, the forecast
-map, green `#1BB580` summary tables and a Further Details link to the
+map, OCHA blue `#009EDB` summary tables and a Further Details link to the
 framework document. Test sends are prefixed `[TEST]`.
 
 ### Outputs

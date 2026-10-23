@@ -34,7 +34,7 @@ FRAMEWORK_URL = (
     "philippines-tropical-cyclones-03-october-2025"
 )
 
-IBF_GREEN = "#1BB580"
+OCHA_BLUE = "#009EDB"
 
 
 def listmonk_client() -> ListmonkClient:
@@ -131,10 +131,10 @@ def _intro_paragraph(readiness_result: dict) -> str:
 def _trigger_status(readiness_result: dict, exposure_trigger: dict) -> str:
     """Where each trigger stands, as two labelled lines."""
     if readiness_result["triggered"]:
-        readiness = f'<span style="color:{IBF_GREEN};font-weight:bold;">Reached</span>'
+        readiness = f'<span style="color:{OCHA_BLUE};font-weight:bold;">Reached</span>'
     elif readiness_result.get("previously_triggered"):
         readiness = (
-            f'<span style="color:{IBF_GREEN};font-weight:bold;">Reached'
+            f'<span style="color:{OCHA_BLUE};font-weight:bold;">Reached'
             "</span> on an earlier forecast for this storm"
         )
     else:
@@ -146,7 +146,7 @@ def _trigger_status(readiness_result: dict, exposure_trigger: dict) -> str:
 
     if exposure_trigger and exposure_trigger.get("triggered"):
         exposure = (
-            f'<span style="color:{IBF_GREEN};font-weight:bold;">Reached'
+            f'<span style="color:{OCHA_BLUE};font-weight:bold;">Reached'
             f"</span> in {', '.join(exposure_trigger['regions'])}"
         )
     else:
@@ -260,7 +260,7 @@ def _build_body(
   .phl-typhoon {{ font-family: Helvetica, Arial, sans-serif; font-size:14px;
                  color:#222; }}
   .phl-typhoon h1 {{ font-size:20px; }}
-  .phl-typhoon h2 {{ font-size:16px; color:{IBF_GREEN};
+  .phl-typhoon h2 {{ font-size:16px; color:{OCHA_BLUE};
                     margin-top:26px; margin-bottom:6px; }}
   .phl-typhoon p {{ line-height:1.5; }}
 </style>
@@ -299,7 +299,7 @@ def _build_body(
           <p>For more details on the Anticipatory Action framework for
           typhoons in the Philippines, please refer to the
           <a href="{FRAMEWORK_URL}" target="_blank"
-             style="color:{IBF_GREEN};text-decoration:underline;">Framework
+             style="color:{OCHA_BLUE};text-decoration:underline;">Framework
              Document</a>.</p>
 </div>"""
 
