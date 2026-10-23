@@ -311,63 +311,33 @@ def _sent_count(client, campaign_id):
     return data.get("sent"), data.get("to_send"), data.get("status")
 
 
-def _delivery_state(client, campaign_id, polls: int = 10) -> str:
-    """Wait for a sent campaign to settle and read back its sent count.
+def _create_and_send(client, name, subject, body, list_id) -> int:
+    """Create a campaign, send it once, and return the campaign ID.
 
-    This instance has been seen to mark a campaign ``finished`` while having
-    sent to nobody, so delivery is read back rather than assumed. Returns
-    ``"delivered"`` once the sent count is non-zero, ``"dropped"`` when the
-    campaign finished with nobody sent, and ``"pending"`` when it is still
-    running after the polls (it may yet deliver, so it is not retried).
+    The send is read back and a warning is printed if Listmonk reports
+    nobody sent, but it is never sent again. On this instance a campaign
+    can finish with ``sent`` 0 and still be delivered (campaign 2619 was
+    delivered and opened with sent 0), so re-sending as a new campaign
+    delivers duplicates to the whole list. API failures raise, and the
+    caller decides on the fallback.
     """
-    for _ in range(polls):
-        time.sleep(3)
-        sent, _to_send, status = _sent_count(client, campaign_id)
-        if sent:
-            return "delivered"
-        if status == "finished":
-            return "dropped"
-    return "pending"
-
-
-def _create_and_send(
-    client, name, subject, body, list_id, attempts: int = 3
-) -> int:
-    """Create a campaign, send it, and return the campaign ID.
-
-    A finished campaign cannot be sent again (ocha-relay raises SendAborted),
-    so a silent drop is retried with a new campaign named ``<name>-retryN``,
-    always to the same list. API failures are not caught here: they raise, and
-    the caller decides on the fallback.
-    """
-    campaign_id = None
-    for attempt in range(1, attempts + 1):
-        suffix = "" if attempt == 1 else f"-retry{attempt - 1}"
-        campaign_id = client.create_campaign(
-            name=f"{name}{suffix}",
-            subject=subject,
-            body=body,
-            list_ids=[list_id],
-        )
-        client.send_campaign(campaign_id, skip_confirmation=True)
-        state = _delivery_state(client, campaign_id)
-        if state == "delivered":
-            return campaign_id
-        if state == "pending":
-            print(
-                f"  WARNING: Listmonk campaign {campaign_id} still running "
-                "with nothing reported sent. Not retrying, to avoid a "
-                "duplicate. Check the Listmonk UI."
-            )
-            return campaign_id
-        print(
-            f"  Listmonk campaign {campaign_id} finished with nobody sent "
-            f"({attempt}/{attempts})"
-        )
-    print(
-        "  WARNING: no Listmonk campaign reported a delivery; last was "
-        f"{campaign_id}. Check the Listmonk UI."
+    campaign_id = client.create_campaign(
+        name=name, subject=subject, body=body, list_ids=[list_id]
     )
+    client.send_campaign(campaign_id, skip_confirmation=True)
+    sent = to_send = status = None
+    for _ in range(10):
+        time.sleep(3)
+        sent, to_send, status = _sent_count(client, campaign_id)
+        if sent or status == "finished":
+            break
+    if not sent:
+        print(
+            f"  WARNING: Listmonk campaign {campaign_id} reports "
+            f"{sent}/{to_send} sent (status {status}). The count can read 0 "
+            "for a delivered campaign, so it is not re-sent. Check the "
+            "Listmonk UI."
+        )
     return campaign_id
 
 
