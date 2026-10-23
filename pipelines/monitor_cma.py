@@ -180,10 +180,13 @@ def _exposure_for_source(buffers, da_pop, adm, regions, all_regions,
                          pcode_col, name_col, expected_landfall):
     """Run one footprint through the exposure calculation.
 
-    ``regions`` (the five framework target regions) drives the trigger
-    check, exactly as before. ``all_regions`` (every PHL admin-1 region)
-    is used only for the exposure monitoring display, so the chart shows
-    exposure levels nationwide without changing trigger behaviour.
+    ``all_regions`` (every PHL admin-1 region) drives both the exposure
+    trigger and the exposure display: the trigger fires for landfall as a
+    Super Typhoon in any region of the country with at least half of that
+    region inside the wind field. ``regions`` (the five framework target
+    regions) is kept for the target-region frame saved with the result;
+    readiness stays on the target regions. ``expected_landfall`` must be
+    computed over ``all_regions`` to match.
     """
     if buffers is None or buffers.empty:
         return None
@@ -199,7 +202,7 @@ def _exposure_for_source(buffers, da_pop, adm, regions, all_regions,
         "region": df_region,
         "region_all": df_region_all,
         "trigger": exp.check_exposure_trigger(
-            df_region, expected_landfall=expected_landfall
+            df_region_all, expected_landfall=expected_landfall
         ),
         "national": exp.national_exposure(
             buffers, da_pop, adm, df_exposure=df_exposure
@@ -351,14 +354,17 @@ def process_bulletin(
 
     if reaches_country:
         da_pop = pop_loader()
+        # Exposure applies to any region in the country, so the landfall the
+        # trigger checks is over all regions. Readiness above is unchanged.
+        exposure_landfall = readiness.expected_landfall(bulletin, all_regions)
 
         cma_res = _exposure_for_source(
             buffers, da_pop, adm, regions, all_regions, pcode_col, name_col,
-            result["expected_landfall"],
+            exposure_landfall,
         )
         climada = _exposure_for_source(
             buffers_climada, da_pop, adm, regions, all_regions, pcode_col,
-            name_col, result["expected_landfall"],
+            name_col, exposure_landfall,
         )
 
         if cma_res is not None:
