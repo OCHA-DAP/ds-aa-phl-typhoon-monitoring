@@ -133,7 +133,9 @@ def should_email(
     whether or not a trigger is reached. Close means the forecast track
     enters the Philippine Area of Responsibility or comes within 500 km of a
     target region. Storms elsewhere in the Western North Pacific are logged
-    but not emailed.
+    but not emailed. Analysis-only bulletins (readiness ``no_forecast``, no
+    forecast positions) are logged but not emailed either: the map would show
+    a single point and say nothing about readiness or exposure.
 
     There is no cooldown: the monitoring log deduplicates on bulletin blob
     name, so a bulletin is processed once and produces at most one email.
@@ -146,6 +148,8 @@ def should_email(
     # become one.
     if force:
         return True
+    if result["status"] == "no_forecast":
+        return False
     return bool(relevant)
 
 
