@@ -31,7 +31,7 @@ PH_TZ = timezone(timedelta(hours=8))
 
 FRAMEWORK_URL = (
     "https://reliefweb.int/report/philippines/anticipatory-action-framework-"
-    "philippines-tropical-cyclones-03-october-2025"
+    "philippines-2026-tropical-cyclones"
 )
 
 OCHA_BLUE = "#009EDB"
