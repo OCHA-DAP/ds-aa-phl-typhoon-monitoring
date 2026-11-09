@@ -4,6 +4,8 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
+from shapely.geometry import LineString, Point, box
+from shapely.ops import unary_union
 
 from src.constants import CHD_BLUE, CHD_GREEN, CHD_RED
 from src.datasources.cma import bulletin_to_frame
@@ -67,6 +69,12 @@ def plot_forecast_map(
             zorder=5,
         )
 
+    track_line = (
+        LineString(zip(track["lon"], track["lat"]))
+        if len(track) > 1
+        else Point(track["lon"].iloc[0], track["lat"].iloc[0])
+    )
+
     lon_pad, lat_pad = 6, 5
     ax.set_xlim(
         min(track["lon"].min() - lon_pad, 116),
@@ -94,16 +102,16 @@ def plot_forecast_map(
                     label=f"{int(speed)} kt wind swath",
                 )
             )
-    # Below the map, not inside it: in the corner it covered the south-west
-    # of the country (Sulu, Zamboanga). The email saves with bbox_inches
-    # "tight", so a legend outside the axes is kept.
-    # Anchored at the bottom of the axes and pushed down a fixed distance
-    # (borderaxespad, in font sizes) to clear the tick labels and axis
-    # label. An axes-fraction offset left a gap that grew with map height.
-    ax.legend(
-        handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0),
-        borderaxespad=3.6, ncol=2, fontsize=8, frameon=False,
-        columnspacing=1.2, handletextpad=0.5,
+    # Inside the map, in whichever corner covers the least land, track and
+    # swath. A fixed corner covered part of the country on some storms.
+    obstacles = [track_line.buffer(0.6)]
+    land = adm1 if adm1 is not None else regions
+    obstacles.append(land.geometry.union_all())
+    if buffers is not None and not buffers.empty:
+        obstacles.append(buffers.geometry.union_all())
+    _legend_in_clearest_corner(
+        ax, handles, unary_union(obstacles), fontsize=8,
+        framealpha=0.9, edgecolor="#bbb",
     )
 
     issued = bulletin["issue_time"].strftime("%Y-%m-%d %H:%M UTC")
@@ -128,6 +136,27 @@ def plot_forecast_map(
     fig.tight_layout()
     return fig
 
+
+
+def _legend_in_clearest_corner(ax, handles, obstacles, **kwargs):
+    """Place the legend in the axes corner that overlaps ``obstacles`` least.
+
+    ``obstacles`` is a shapely geometry in data coordinates (land, track,
+    swath). Each corner is tried, the legend box is measured in data
+    coordinates, and the corner with the smallest overlap wins. Ties go to
+    the first corner in the list, so open ocean to the east is preferred.
+    """
+    best_loc, best_overlap = None, None
+    for loc in ("upper right", "lower right", "upper left", "lower left"):
+        legend = ax.legend(handles=handles, loc=loc, **kwargs)
+        ax.figure.canvas.draw()
+        bb = legend.get_window_extent().transformed(ax.transData.inverted())
+        overlap = obstacles.intersection(
+            box(bb.x0, bb.y0, bb.x1, bb.y1)
+        ).area
+        if best_overlap is None or overlap < best_overlap:
+            best_loc, best_overlap = loc, overlap
+    return ax.legend(handles=handles, loc=best_loc, **kwargs)
 
 def plot_exposure(
     df_summary,
