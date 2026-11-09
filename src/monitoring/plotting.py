@@ -97,9 +97,13 @@ def plot_forecast_map(
     # Below the map, not inside it: in the corner it covered the south-west
     # of the country (Sulu, Zamboanga). The email saves with bbox_inches
     # "tight", so a legend outside the axes is kept.
+    # Anchored at the bottom of the axes and pushed down a fixed distance
+    # (borderaxespad, in font sizes) to clear the tick labels and axis
+    # label. An axes-fraction offset left a gap that grew with map height.
     ax.legend(
-        handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.11),
-        ncol=2, fontsize=8, frameon=False,
+        handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0),
+        borderaxespad=3.6, ncol=2, fontsize=8, frameon=False,
+        columnspacing=1.2, handletextpad=0.5,
     )
 
     issued = bulletin["issue_time"].strftime("%Y-%m-%d %H:%M UTC")
