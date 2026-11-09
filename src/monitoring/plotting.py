@@ -94,7 +94,13 @@ def plot_forecast_map(
                     label=f"{int(speed)} kt wind swath",
                 )
             )
-    ax.legend(handles=handles, loc="lower left", fontsize=8)
+    # Below the map, not inside it: in the corner it covered the south-west
+    # of the country (Sulu, Zamboanga). The email saves with bbox_inches
+    # "tight", so a legend outside the axes is kept.
+    ax.legend(
+        handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.11),
+        ncol=2, fontsize=8, frameon=False,
+    )
 
     issued = bulletin["issue_time"].strftime("%Y-%m-%d %H:%M UTC")
     title = (
